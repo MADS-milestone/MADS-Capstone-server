@@ -37,6 +37,11 @@ async def root():
     return {"message": "Welcome to Clinical Trials RAG!"}
 
 
+@app.get("/hello/{name}")
+async def hello(name: str):
+    return JSONResponse(content={"message": f"Hello {name}!"})
+
+
 @app.post("/get_response/")
 async def get_response(query: str = Body()):
     response = app.state.chat_engine.chat(query)
