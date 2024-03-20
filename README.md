@@ -28,6 +28,7 @@ MADS Capstone back-end module with REST API.
 ## REST API endpoints
 
 - get **/** - displays a silly greetings message
+- get **/hello/{name}** - displays a silly **Hello {name}!** message
 - post **/get_response/** - returns response for the query 
 - get **/reset_chat** - resets chat engine
 - get **/delete_index** - clears index
