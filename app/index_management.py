@@ -144,8 +144,7 @@ class IndexManager:
 
         hybrid_index = VectorStoreIndex(
             nodes=nodes,
-            storage_context=hybrid_storage_context,
-            store_nodes_override=True
+            storage_context=hybrid_storage_context
         )
 
         return hybrid_index
