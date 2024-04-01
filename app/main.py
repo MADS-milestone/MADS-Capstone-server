@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from llama_index.core import Settings
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
+from starlette.responses import FileResponse
 
 from chatbot import ChatBot
 from config import config
@@ -11,14 +12,15 @@ from fastapi import FastAPI, Body, HTTPException
 from fastapi.responses import JSONResponse
 
 from index_management import IndexManager
+from utils import pfizer_ncts
 
 load_dotenv()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    embed_model = OpenAIEmbedding(model="text-embedding-ada-002")
-    llm = OpenAI(temperature=0.001, model="gpt-3.5-turbo", max_tokens=512)
+    embed_model = OpenAIEmbedding(model="text-embedding-3-large")
+    llm = OpenAI(temperature=0.001, model="gpt-3.5-turbo-0125", max_tokens=512)
     Settings.llm = llm
     Settings.embed_model = embed_model
     index = ChatBot.get_index(config.connection_str, config.index_table, config.embed_dim)
@@ -34,7 +36,7 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Clinical Trials RAG!"}
+    return {"message": "Welcome to the UMSI Clinical Trials RAG!"}
 
 
 @app.get("/hello/{name}")
@@ -82,6 +84,42 @@ async def get_trials(nct_ids: str = Body()):
             table_name=config.index_table,
             embed_dim=config.embed_dim)
         index_manager.load_trials(nct_id_list)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading trials: {str(e)}")
+    try:
+        idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
+    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
+
+
+@app.post("/load_trials/")
+async def get_trials(nct_ids: str = Body()):
+    nct_id_list = [nct_id.strip() for nct_id in nct_ids.split(",")]
+
+    try:
+        index_manager = IndexManager(
+            conn_str=config.connection_str,
+            table_name=config.index_table,
+            embed_dim=config.embed_dim)
+        index_manager.load_trials(nct_id_list)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading trials: {str(e)}")
+    try:
+        idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
+    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
+
+
+@app.get("/load_pfizer_trials/")
+async def get_pfizer_trials():
+    try:
+        index_manager = IndexManager(
+            conn_str=config.connection_str,
+            table_name=config.index_table,
+            embed_dim=config.embed_dim)
+        index_manager.load_trials(pfizer_ncts)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading trials: {str(e)}")
     try:

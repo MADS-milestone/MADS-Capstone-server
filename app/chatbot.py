@@ -6,6 +6,7 @@ from sqlalchemy import make_url
 
 load_dotenv()
 
+
 class ChatBot:
 
     def __init__(self, conn_str, index_table):
@@ -40,22 +41,20 @@ class ChatBot:
         # chat_engine.reset()
 
         chat_engine = index.as_chat_engine(
-            similarity_top_k=7,  # <== adjust
-            chat_mode="condense_plus_context",
+            similarity_top_k=3,  # <== adjust
+            #chat_mode="condense_plus_context",
+            chat_mode="condense_question",
             vector_store_query_mode="hybrid",
             sparse_top_k=2,
             memory=memory,
             context_prompt=(
                 """
-                You are a chatbot, who is an expert in parsing information from clinical trials.
-                If you are asked for a brief summary, then provide a concise response.
-                If you are asked for a Plain Language Summary (PLS), then use everyday language to make the clinical results of a study meaningful and understandable to a lay person.
-                If you are asked for a expert summary, then emulate a PhD scientist and expert statistician in your response.
-                If you are asked for a child-friendly answer, then emulate a kindergarten teacher and use language a child can understand.
+                You are a chatbot which is expert in parsing information.
+                When asked a question, provide a complete response, concisely.
                 """
                 "Here are the relevant documents for the context:\n"
                 "{context_str}"
-                "\nInstruction: Only use the previous chat history, or the context above, to respond."
+                "\nInstruction: Use only the context above or this chat history to respond."
             ),
             verbose=False,
         )

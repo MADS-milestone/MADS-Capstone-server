@@ -8,24 +8,30 @@ from sqlalchemy import make_url, text
 import sqlalchemy as db
 from sqlalchemy_utils import database_exists, create_database, drop_database
 
-from utils_16F import extract_from_json, format_flattened_dict, flatten_dict
+from utils import extract_from_json, format_flattened_dict, flatten_dict
 
 load_dotenv()
 
 llm_keys_to_include = [
-    "Brief title",
     "National Clinical Identification NCT ID",
+    "Brief title",
+    "Condition",
+    "Conditions keywords",
     "Lead sponsor",
     "Arms group 0 intervention names",
-    "Enrollment count"
+    "p-value",
+    "Statistical Method",
 ]
 
 embedding_keys_to_include = [
-    "Brief title",
     "National Clinical Identification NCT ID",
+    "Brief title",
+    "Condition",
+    "Conditions keywords",
     "Lead sponsor",
     "Arms group 0 intervention names",
-    "Enrollment count"
+    "p-value",
+    "Statistical Method",
 ]
 
 
@@ -90,7 +96,7 @@ class IndexManager:
         """
         Generates and embeds nodes from Llama documents.
         """
-        parser = SentenceSplitter(chunk_size=1024, chunk_overlap=200)  # <== adjust from default values
+        parser = SentenceSplitter(chunk_size=8190, chunk_overlap=0)  # <== adjust from default values
         nodes = parser.get_nodes_from_documents(llama_documents)
         for node in nodes:
             node_embedding = embed_model.get_text_embedding(
