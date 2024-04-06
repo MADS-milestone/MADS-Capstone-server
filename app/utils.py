@@ -1,3 +1,4 @@
+import logging
 import re
 
 
@@ -229,6 +230,19 @@ def format_flattened_dict(flat_dict):
         lines.append(line)
     return ",\n".join(lines)
 
+
+def init_logging(name):
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    formatter = logging.Formatter(fmt="%(asctime)s - %(levelname)s - %(name)s -  %(message)s",
+                                  datefmt="%d-%m-%Y %H:%M:%S")
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    ch.setFormatter(formatter)
+    if logger.hasHandlers():
+        logger.handlers.clear()
+    logger.addHandler(ch)
+    return logger
 
 pfizer_ncts = [
     "NCT00036270",

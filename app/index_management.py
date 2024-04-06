@@ -1,16 +1,21 @@
+import os
+
+import psycopg2
 import requests as req
 from dotenv import load_dotenv
 from llama_index.core import Document, Settings, StorageContext, VectorStoreIndex
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core.schema import MetadataMode
 from llama_index.vector_stores.postgres import PGVectorStore
+from psycopg2.extras import NamedTupleCursor
 from sqlalchemy import make_url, text
 import sqlalchemy as db
 from sqlalchemy_utils import database_exists, create_database, drop_database
 
-from utils import extract_from_json, format_flattened_dict, flatten_dict
+from utils import extract_from_json, format_flattened_dict, flatten_dict, init_logging
 
 load_dotenv()
+logger = init_logging(__name__)
 
 llm_keys_to_include = [
     "National Clinical Identification NCT ID",
@@ -105,6 +110,42 @@ class IndexManager:
             node.embedding = node_embedding
         return nodes
 
+    def pull_pfizer_trials(self):
+        db_username = os.getenv("AACT_USERNAME")
+        db_password = os.getenv("AACT_PASSWORD")
+
+        if not db_username or not db_password:
+            raise ValueError("AACT_USERNAME and AACT_PASSWORD must be set in .env")
+
+        conn = psycopg2.connect(
+            host="aact-db.ctti-clinicaltrials.org",
+            database="aact",
+            user=db_username,
+            password=db_password,
+            port="5432",
+            cursor_factory=NamedTupleCursor
+        )
+
+        query = """select distinct
+                        s.nct_id 
+                    FROM
+                        studies s
+                    LEFT JOIN conditions c ON s.nct_id = c.nct_id
+                    LEFT JOIN outcome_analyses oa ON s.nct_id = oa.nct_id
+                    WHERE
+                        s.study_type IN ('Interventional')
+                        AND s.phase IN ('Phase 3')
+                        AND s.overall_status = 'Completed'
+                        AND oa.p_value IS NOT NULL
+                        AND s.source = 'Pfizer'"""
+
+        with conn:
+            with conn.cursor() as curs:
+                curs.execute(query)
+                nct_ids = [rec.nct_id for rec in curs.fetchall()]
+
+        return nct_ids
+
     def load_trials(self, nct_ids: list):
 
         documents_list = []
@@ -125,6 +166,8 @@ class IndexManager:
 
         if not database_exists(url):
             create_database(url)
+
+        self.delete_index(self.conn_str, self.table_name)
 
         hybrid_vector_store = PGVectorStore.from_params(
             database=url.database,
@@ -173,4 +216,48 @@ class IndexManager:
 
         return index_len[0]
 
+    def get_most_recent_trial(self, condition):
+        db_username = os.getenv("AACT_USERNAME")
+        db_password = os.getenv("AACT_PASSWORD")
+
+        if not db_username or not db_password:
+            raise ValueError("AACT_USERNAME and AACT_PASSWORD must be set in .env")
+
+        conn = psycopg2.connect(
+            host="aact-db.ctti-clinicaltrials.org",
+            database="aact",
+            user=db_username,
+            password=db_password,
+            port="5432",
+            cursor_factory=NamedTupleCursor
+        )
+
+        query = f"""select distinct
+                        s.nct_id,
+                        s.brief_title,
+                        s.updated_at
+                    FROM
+                        studies s
+                    LEFT JOIN conditions c ON s.nct_id = c.nct_id
+                    LEFT JOIN outcome_analyses oa ON s.nct_id = oa.nct_id
+                    WHERE
+                        s.study_type IN ('Interventional')
+                        AND s.phase IN ('Phase 3')
+                        AND s.overall_status = 'Completed'
+                        AND oa.p_value IS NOT NULL
+                        AND s.source = 'Pfizer'
+                        AND (
+                            c.downcase_name like '%{condition.lower()}%'
+                            OR lower(s.brief_title) like '%{condition.lower()}%'     
+                            )
+                        ORDER BY s.updated_at DESC
+                        LIMIT 1
+                        """
+
+        with conn:
+            with conn.cursor() as curs:
+                curs.execute(query)
+                res = curs.fetchone()
+
+        return res
 

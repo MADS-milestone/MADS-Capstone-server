@@ -12,13 +12,15 @@ from fastapi import FastAPI, Body, HTTPException
 from fastapi.responses import JSONResponse
 
 from index_management import IndexManager
-from utils import pfizer_ncts
+from utils import pfizer_ncts, init_logging
 
 load_dotenv()
 
+logger = init_logging(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Initializing models, index and chatbot...")
     embed_model = OpenAIEmbedding(model="text-embedding-3-large")
     llm = OpenAI(temperature=0.001, model="gpt-3.5-turbo-0125", max_tokens=512)
     Settings.llm = llm
@@ -46,20 +48,25 @@ async def hello(name: str):
 
 @app.post("/get_response/")
 async def get_response(query: str = Body()):
+    logger.info(f"Received a POST request, request body: {query}")
     response = app.state.chat_engine.chat(query)
-    return JSONResponse(content={"detail": {"response": response.response}})
+    return JSONResponse(content={"response": response.response})
 
 
 @app.get("/reset_chat")
 async def reset_chat():
+    logger.info("Resetting chat bot...")
     app.state.chat_engine.reset()
+    logger.info("Chat bot reset.")
     return JSONResponse(content={"detail": "chat engine reset"})
 
 
 @app.get("/delete_index")
 async def delete_index():
     try:
+        logger.info("Deleting index...")
         IndexManager.delete_index(config.connection_str, f"data_{config.index_table}")
+        logger.info("Index deleted.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting index: {str(e)}")
     return JSONResponse(content={"detail": "Index deleted"})
@@ -68,15 +75,18 @@ async def delete_index():
 @app.get("/get_index_length")
 async def get_index_length():
     try:
+        logger.info("Getting index length...")
         idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
+        logger.info(f"Index length: {idx_len}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
-    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
+    return JSONResponse(content={"index_length": f"{idx_len}"})
 
 
 @app.post("/load_trials/")
 async def get_trials(nct_ids: str = Body()):
     nct_id_list = [nct_id.strip() for nct_id in nct_ids.split(",")]
+    logger.info(f"Getting trials for the given nct_ids list of length: {len(nct_id_list)}...")
 
     try:
         index_manager = IndexManager(
@@ -90,27 +100,7 @@ async def get_trials(nct_ids: str = Body()):
         idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
-    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
-
-
-@app.post("/load_trials/")
-async def get_trials(nct_ids: str = Body()):
-    nct_id_list = [nct_id.strip() for nct_id in nct_ids.split(",")]
-
-    try:
-        index_manager = IndexManager(
-            conn_str=config.connection_str,
-            table_name=config.index_table,
-            embed_dim=config.embed_dim)
-        index_manager.load_trials(nct_id_list)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading trials: {str(e)}")
-    try:
-        idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
-    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
-
+    return JSONResponse(content={"index_length": f"{idx_len}"})
 
 @app.get("/load_pfizer_trials/")
 async def get_pfizer_trials():
@@ -118,12 +108,42 @@ async def get_pfizer_trials():
         index_manager = IndexManager(
             conn_str=config.connection_str,
             table_name=config.index_table,
-            embed_dim=config.embed_dim)
+            embed_dim=config.embed_dim
+        )
+        logger.info("Pulling NCT IDs of Pfizer trials from AACT...")
+        pfizer_ncts = index_manager.pull_pfizer_trials()
+        logger.info(f"len(pfizer_ncts) trials pulled")
+        logger.info("Storing Pfizer trials into index...")
         index_manager.load_trials(pfizer_ncts)
+        logger.info("Done")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading trials: {str(e)}")
     try:
         idx_len = IndexManager.get_index_length(config.connection_str, f"data_{config.index_table}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting index length: {str(e)}")
-    return JSONResponse(content={"detail": {"index_length": f"{idx_len}"}})
+    return JSONResponse(content={"index_length": f"{idx_len}"})
+
+
+@app.get("/get_most_recent_trial/{condition}")
+async def get_most_recent_trial(condition: str):
+    try:
+        index_manager = IndexManager(
+            conn_str=config.connection_str,
+            table_name=config.index_table,
+            embed_dim=config.embed_dim
+        )
+        logger.info(f"Getting most recent Pfizer trial for {condition}...")
+        res = index_manager.get_most_recent_trial(condition)
+        if res is None:
+            logger.info(f"No clinical trial found for {condition}.")
+            return JSONResponse(
+                content={"detail": {"results_found": False}}
+            )
+        else:
+            logger.info(f"Most recent Pfizer trial for {condition}:\nNCT_ID: {res.nct_id}\nbrief title: {res.brief_title}")
+        return JSONResponse(
+            content={"detail": {"results_found": True, "nct_id": res.nct_id, "brief_title": res.brief_title}}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting most recent trial: {str(e)}")
