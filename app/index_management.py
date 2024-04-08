@@ -234,8 +234,7 @@ class IndexManager:
 
         query = f"""select distinct
                         s.nct_id,
-                        s.brief_title,
-                        s.updated_at
+                        s.brief_title
                     FROM
                         studies s
                     LEFT JOIN conditions c ON s.nct_id = c.nct_id
@@ -250,14 +249,21 @@ class IndexManager:
                             c.downcase_name like '%{condition.lower()}%'
                             OR lower(s.brief_title) like '%{condition.lower()}%'     
                             )
-                        ORDER BY s.updated_at DESC
-                        LIMIT 1
+                        ORDER BY s.nct_id DESC
+                        --LIMIT 1
                         """
 
         with conn:
             with conn.cursor() as curs:
                 curs.execute(query)
-                res = curs.fetchone()
+                res = curs.fetchall()
 
-        return res
+        res_list = []
+        for el in res:
+            res_list.append({"nct_id": el.nct_id, "brief_title": el.brief_title})
+
+        return res_list
+
+    def set_chatbot_context(self, nct_id):
+        pass
 

@@ -125,8 +125,8 @@ async def get_pfizer_trials():
     return JSONResponse(content={"index_length": f"{idx_len}"})
 
 
-@app.get("/get_most_recent_trial/{condition}")
-async def get_most_recent_trial(condition: str):
+@app.get("/get_trials_for_condition/{condition}")
+async def get_trials_for_condition(condition: str):
     try:
         index_manager = IndexManager(
             conn_str=config.connection_str,
@@ -135,15 +135,15 @@ async def get_most_recent_trial(condition: str):
         )
         logger.info(f"Getting most recent Pfizer trial for {condition}...")
         res = index_manager.get_most_recent_trial(condition)
-        if res is None:
-            logger.info(f"No clinical trial found for {condition}.")
+        if len(res) == 0:
+            logger.info(f"No clinical trials found for {condition}.")
             return JSONResponse(
                 content={"detail": {"results_found": False}}
             )
         else:
-            logger.info(f"Most recent Pfizer trial for {condition}:\nNCT_ID: {res.nct_id}\nbrief title: {res.brief_title}")
+            logger.info(f"{len(res)} trials found for {condition}")
         return JSONResponse(
-            content={"detail": {"results_found": True, "nct_id": res.nct_id, "brief_title": res.brief_title}}
+            content={"detail": {"results_found": True, "trials": res}}
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error getting most recent trial: {str(e)}")
