@@ -55,7 +55,7 @@ class ChatBot:
                 "Here are the relevant documents for the context:\n"
                 "{context_str}"
                 "\nInstruction: Use only the context above or this chat history to respond."
-                "If you are unable to find any information related to the query in the context, please say 'Oof, I don't know'."
+                "If you are unable to find any information related to the query in the context, please say 'I don't know'."
             ),
             verbose=False,
         )

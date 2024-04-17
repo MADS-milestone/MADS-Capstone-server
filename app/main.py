@@ -8,11 +8,11 @@ from starlette.responses import FileResponse
 from chatbot import ChatBot
 from config import config
 from dotenv import load_dotenv
-from fastapi import FastAPI, Body, HTTPException
+from fastapi import FastAPI, Request, Body, HTTPException
 from fastapi.responses import JSONResponse
 
 from index_management import IndexManager
-from utils import pfizer_ncts, init_logging
+from utils import init_logging, build_query
 
 load_dotenv()
 
@@ -47,8 +47,11 @@ async def hello(name: str):
 
 
 @app.post("/get_response/")
-async def get_response(query: str = Body()):
-    logger.info(f"Received a POST request, request body: {query}")
+async def get_response(payload_req: Request):
+    payload = await payload_req.json()
+    print(payload)
+    logger.info(f"Received a POST request, query: {payload['query']}, profile: {payload['profile']}")
+    query = build_query(payload)
     response = app.state.chat_engine.chat(query)
     return JSONResponse(content={"response": response.response})
 
@@ -65,7 +68,7 @@ async def reset_chat():
 async def delete_index():
     try:
         logger.info("Deleting index...")
-        IndexManager.delete_index(config.connection_str, f"data_{config.index_table}")
+        IndexManager.delete_index(config.connection_str, f"{config.index_table}")
         logger.info("Index deleted.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting index: {str(e)}")
@@ -112,7 +115,7 @@ async def get_pfizer_trials():
         )
         logger.info("Pulling NCT IDs of Pfizer trials from AACT...")
         pfizer_ncts = index_manager.pull_pfizer_trials()
-        logger.info(f"len(pfizer_ncts) trials pulled")
+        logger.info(f"{len(pfizer_ncts)} trials pulled")
         logger.info("Storing Pfizer trials into index...")
         index_manager.load_trials(pfizer_ncts)
         logger.info("Done")

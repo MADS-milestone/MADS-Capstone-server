@@ -196,7 +196,7 @@ class IndexManager:
     def delete_index(cls, conn_str, index_table):
         engine = db.create_engine(conn_str)
         with engine.connect() as conn:
-            conn.exec_driver_sql(f"truncate table {index_table}")
+            conn.exec_driver_sql(f"truncate table data_{index_table}")
             conn.commit()
         return True
 
