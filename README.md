@@ -12,11 +12,11 @@ MADS Capstone back-end module with REST API.
 - **host**: localhost
 - **port**: 5432
 
-## Start back-end module
+## Start back-end module (run in the root dir)
 
 > **NOTE:**  
 > - run `pip install -r requirements.txt` to install dependencies  
-> - create an `.env` file under `app` and add your OPENAI_API_KEY  
+> - create an `.env` file under `app` and add **OPENAI_API_KEY**, **AACT_USERNAME** and **AACT_PASSWORD** variables to it
 
 `cd app`  
 `uvicorn main:app --host 127.0.0.1 --port 8080 --reload`
