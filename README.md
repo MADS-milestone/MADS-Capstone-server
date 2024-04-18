@@ -14,7 +14,9 @@ MADS Capstone back-end module with REST API.
 
 ## Start back-end module
 
-> **NOTE:** First thing - create an `.env` file under `app` and add your OPENAI_API_KEY  
+> **NOTE:**  
+> - run `pip install -r requirements.txt` to install dependencies  
+> - create an `.env` file under `app` and add your OPENAI_API_KEY  
 
 `cd app`  
 `uvicorn main:app --host 127.0.0.1 --port 8080 --reload`
@@ -27,15 +29,16 @@ MADS Capstone back-end module with REST API.
 
 ## REST API endpoints
 
-- get **/** - displays a silly greetings message
-- get **/hello/{name}** - displays a silly **Hello {name}!** message
-- post **/get_response/** - returns response for the query 
-- get **/reset_chat** - resets chat engine
-- get **/delete_index** - clears index
-- get **/get_index_length** - returns index length
-- post **/load_trials/** - downloads clinical trials and stores in the vector store
+- GET **/** - displays a silly greetings message
+- GET **/hello/{name}** - displays a silly **Hello {name}!** message
+- POST **/get_response/** - returns response for the query 
+- GET **/reset_chat** - resets chat engine
+- GET **/delete_index** - clears index
+- GET **/get_index_length** - returns index length
+- POST **/load_trials/** - downloads clinical trials and stores in the vector store
+- GET **/load_pfizer_trials/** - downloads Pfizer (Phase 3, Interventional, Completed) clinical trials ans stores in the vector store
 
-## Build and run the back-end module in Docker
-`cd app`  
+## Build and run the back-end module in Docker (run in the root dir)
+
 `docker build -t ragapi-app .`  
 `docker run -p 8080:8080 ragapi-app`
